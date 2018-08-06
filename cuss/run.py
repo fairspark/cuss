@@ -1,11 +1,15 @@
 from tab import *
 from standardscreen import *
+from curses import wrapper
 
 
-def main():
+def main(stdscr):
     screen = StandardScreen()
     screen.display()
 
 
+
 if __name__ == '__main__':
-    main()
+    wrapper(main)
+
+

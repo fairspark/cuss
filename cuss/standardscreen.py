@@ -5,6 +5,8 @@ class StandardScreen:
     _tabs = []
     _tab_headers = []
 
+
+    # Private methods
     def __init__(self):
         self.stdscr = curses.initscr()
         self.stdscr.keypad(1)
@@ -14,11 +16,13 @@ class StandardScreen:
         curses.cbreak()         # Intercepts keystrokes
         curses.curs_set(0)      # Hide cursor
 
+        self._height = curses.LINES
+        self._width = curses.COLS
         self._enable_color()
         self._init_colors()
-        self._init_title()
-        self._init_footer()
-        self._add_tabs()
+        self._init_tabs()
+        self._set_active_tab(0)
+        self.update()
 
 
     def __del__(self):
@@ -27,10 +31,15 @@ class StandardScreen:
         curses.nocbreak()
         curses.echo()
         curses.curs_set(1)
-
-        # Retore the terminal itself to its "former glory"
         curses.endwin()
-    
+
+
+    def resize(self):
+        resize = curses.is_term_resized(self._height, self._width)
+        
+        if resize is True:
+            y, x = self.stdscr.getmaxyx()
+            self.stdscr.addstr(2,2, str(x))
 
 
     def _init_colors(self):
@@ -46,7 +55,7 @@ class StandardScreen:
 
     def _init_title(self):
         self.title = "CUSS - Common Unix-like SNMP Station"
-        self.stdscr.addstr(self.title, curses.A_REVERSE)
+        self.stdscr.addstr(0,0,self.title, curses.A_REVERSE)
         self.stdscr.chgat(-1, curses.A_REVERSE)
 
 
@@ -57,20 +66,22 @@ class StandardScreen:
         self.stdscr.chgat(curses.LINES-1, 8, 1, curses.A_BOLD | curses.color_pair(1))
 
 
-    def _add_tabs(self):
-        self._tabs.append(Tab("Dashboard"))
-        self._tabs.append(Tab("CPU"))
-        self._tabs.append(Tab("Memory"))
-        self._tabs.append(Tab("Network"))
-        self._tabs.append(Tab("Updates"))
-        self._tabs.append(Tab("Config"))
-        self._active_index = 0
-        self._active_tab = self._tabs[self._active_index]
-        self._update_tab_headers()
-        self.update()
+    def _set_active_tab(self, index):
+        self._active_index = index
+        self._active_tab = self._tabs[index]
 
 
-    def _update_tab_headers(self):
+    def _init_tabs(self):
+        self._tabs.append(Tab("Dashboard", self._height, self._width))
+        self._tabs.append(Tab("CPU", self._height, self._width))
+        self._tabs.append(Tab("Memory", self._height, self._width))
+        self._tabs.append(Tab("Network", self._height, self._width))
+        self._tabs.append(Tab("Updates", self._height, self._width))
+        self._tabs.append(Tab("Config", self._height, self._width))
+        self._init_tab_headers()
+
+
+    def _init_tab_headers(self):
         # Generate a list of tab headers from each of their corresponding titles
         tab_headers = []
         for tab in self._tabs:
@@ -78,28 +89,21 @@ class StandardScreen:
 
         self._tab_headers = tab_headers
 
-    
 
-    def tab_shift_right(self):
-        if self._active_index < len(self._tabs) - 1:
-            self._active_index = self._active_index + 1
-            self._active_tab = self._tabs[self._active_index]
-
-
-    def tab_shift_left(self):
-        if self._active_index > 0:
-            self._active_index = self._active_index - 1
-            self._active_tab = self._tabs[self._active_index]
-            
-
-    def update(self):
-
+    def _draw_line_header(self):
+        # Draw upper left corner
         self.stdscr.addch(1,0,curses.ACS_ULCORNER )
 
-        # Draw horizontal bar
-        for x in range(curses.COLS-2):
+        # Draw upper horizontal bar
+        for x in range(self._width - 2):
             self.stdscr.addch(curses.ACS_HLINE)
-        self.stdscr.addch(1,curses.COLS-1,curses.ACS_URCORNER )
+
+        # Draw upper right corner
+        self.stdscr.addch(curses.ACS_URCORNER)
+
+
+    def _print_headers(self):
+        active_header = self._active_tab.get_header()
 
         # Set cursor
         tab_offsets = 3
@@ -107,28 +111,61 @@ class StandardScreen:
 
         # Draw tab headers
         for header in self._tab_headers:
-            if (header == self._active_tab.get_header()):
+            if (header ==  active_header):
                 self.stdscr.addstr(header, curses.A_BOLD|curses.A_REVERSE)
                 self.stdscr.addstr(' ')
             else:
                 self.stdscr.addstr(header + ' ')
 
 
-        #self.stdscr.addstr(1, tab_offsets, tab_header_str)
+    # Public methods
+    def tab_shift_right(self):
+        total_tabs = len(self._tabs)
+
+        if self._active_index < (total_tabs - 1):
+            self._active_index += 1
+            self._active_tab = self._tabs[self._active_index]
+
+
+    def tab_shift_left(self):
+        if self._active_index > 0:
+            self._active_index -= 1
+            self._active_tab = self._tabs[self._active_index]
+            
+
+    def update(self):
+        self.stdscr.clear()
+        self._init_title()
+        self._draw_line_header()
+        self._print_headers()
+        self._init_footer()
         self.stdscr.noutrefresh()
-        self._active_tab.update()
+        self.stdscr.addstr(7,2, 'self._height ' + str(self._height))
+        self.stdscr.addstr(8,2, 'self._width  ' + str(self._width))
+        self.stdscr.addstr(9,2, 'curses.LINES ' + str(curses.LINES))
+        self.stdscr.addstr(10,2, 'curses.COLS  ' + str(curses.COLS))
+        self._active_tab.update(self._height, self._width)
         curses.doupdate()
 
 
     def display(self):
-        # Create the event loop
+        # Display event loop
         while True:
-            #c = tab.getch()
+            y, x = self.stdscr.getmaxyx()
+            if( y != self._height ) or ( x != self._width ):
+                self._height = y
+                self._width = x
+                curses.resizeterm(y, x)
+                self.update()
+
             c = self.stdscr.getch()
+            
 
             # TODO - Handle various keystrokes here
             if c == curses.KEY_RIGHT:
                 self.tab_shift_right()
+#            elif c == curses.KEY_RESIZE:
+#                self.resize()
             elif c == curses.KEY_LEFT:
                 self.tab_shift_left()
             elif c == ord('q') or c == ord('Q'):
@@ -140,4 +177,5 @@ class StandardScreen:
 
             # Refresh the windows from the bottom up
             self.update()
-            curses.doupdate()
+
+
