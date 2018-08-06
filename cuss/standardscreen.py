@@ -18,6 +18,7 @@ class StandardScreen:
 
         self._height = curses.LINES
         self._width = curses.COLS
+        self._title = ''
         self._enable_color()
         self._init_colors()
         self._init_tabs()
@@ -34,13 +35,6 @@ class StandardScreen:
         curses.endwin()
 
 
-    def resize(self):
-        resize = curses.is_term_resized(self._height, self._width)
-        
-        if resize is True:
-            y, x = self.stdscr.getmaxyx()
-            self.stdscr.addstr(2,2, str(x))
-
 
     def _init_colors(self):
         curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK)
@@ -53,17 +47,11 @@ class StandardScreen:
             curses.start_color()
 
 
-    def _init_title(self):
-        self.title = "CUSS - Common Unix-like SNMP Station"
-        self.stdscr.addstr(0,0,self.title, curses.A_REVERSE)
-        self.stdscr.chgat(-1, curses.A_REVERSE)
-
-
     def _init_footer(self):
-        self.stdscr.addstr(curses.LINES-1, 0, " Press 'Q' to quit")
+        self.stdscr.addstr(self._height - 1, 0, " Press 'Q' to quit")
 
         # Change the Q to green
-        self.stdscr.chgat(curses.LINES-1, 8, 1, curses.A_BOLD | curses.color_pair(1))
+        self.stdscr.chgat(self._height - 1, 8, 1, curses.A_BOLD | curses.color_pair(1))
 
 
     def _set_active_tab(self, index):
@@ -118,7 +106,19 @@ class StandardScreen:
                 self.stdscr.addstr(header + ' ')
 
 
+    def _displaytitlebar(self):
+        if self._title is not '':
+            self.stdscr.addstr(0,0,self._title, curses.A_REVERSE)
+            self.stdscr.chgat(-1, curses.A_REVERSE)
+
+
     # Public methods
+    def addtitlebar(self, title):
+        self._title = title
+        self._displaytitlebar()
+
+
+
     def tab_shift_right(self):
         total_tabs = len(self._tabs)
 
@@ -135,7 +135,7 @@ class StandardScreen:
 
     def update(self):
         self.stdscr.clear()
-        self._init_title()
+        self._displaytitlebar()
         self._draw_line_header()
         self._print_headers()
         self._init_footer()

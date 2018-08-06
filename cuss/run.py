@@ -5,6 +5,7 @@ from curses import wrapper
 
 def main(stdscr):
     screen = StandardScreen()
+    screen.addtitlebar('CUSS - Common Unix-like SNMP Station')
     screen.display()
 
 
